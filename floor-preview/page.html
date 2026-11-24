@@ -1,0 +1,399 @@
+<title>Grey Oak Floor Preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the rendered room is the hero on the left; a spec sheet like a flooring takeoff sits on the right and stacks below on phones */
+:root {
+  --bg: #ecebe7; --sheet: #f7f6f3; --ink: #1f2124; --muted: #646a70; --rule: #d6d4ce;
+  --accent: #35617d; --accent-ink: #ffffff; --cut: #c9701f; --stage: #1b1c1d;
+  --f-head: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141516; --sheet: #1d1f21; --ink: #e9e8e4; --muted: #9aa0a6; --rule: #33363a;
+  --accent: #86b6d4; --accent-ink: #0f1a22; --cut: #e9a35e; --stage: #0f1011; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141516; --sheet: #1d1f21; --ink: #e9e8e4; --muted: #9aa0a6; --rule: #33363a;
+  --accent: #86b6d4; --accent-ink: #0f1a22; --cut: #e9a35e; --stage: #0f1011; color-scheme: dark }
+
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; max-width: 1560px; margin: 0 auto;
+  padding-block: 20px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 920px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+.stage-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.viewer { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--stage); border-radius: 6px; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+.viewer.dragging { cursor: grabbing; }
+.viewer canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.status { position: absolute; left: 10px; bottom: 10px; font: 500 12px/1 var(--f-mono); color: #f2f1ee; background: rgba(15, 16, 17, 0.55); padding: 6px 8px; border-radius: 4px; pointer-events: none; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: #d9d7d2; font: 500 13px var(--f-mono); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group-label { font: 600 11px var(--f-head); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+button { font: 500 13px var(--f-body); color: var(--ink); background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.hint { font-size: 13px; color: var(--muted); }
+
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+h1 { font: 700 26px/1.1 var(--f-head); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+h2 { font: 600 12px var(--f-head); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 14px; }
+dt { color: var(--muted); font-size: 14px; }
+dd { margin: 0; text-align: right; font: 500 14px var(--f-mono); font-variant-numeric: tabular-nums; }
+.buy { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 4px 12px; }
+.buy .n { font: 600 44px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.buy .l { font: 600 15px var(--f-head); }
+.buy .why { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--cut); margin-right: 6px; vertical-align: 0; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+</style>
+
+<div class="wrap">
+  <div class="stage-col">
+    <div class="viewer" id="viewer" aria-label="3D view of the floor. Drag to orbit, scroll or pinch to zoom.">
+      <canvas id="c" width="1600" height="900"></canvas>
+      <div class="loading" id="loading">Building planks…</div>
+      <div class="status" id="status" hidden></div>
+    </div>
+    <div class="toolbar">
+      <div class="group" role="group" aria-label="Camera">
+        <span class="group-label">View</span>
+        <button id="v-overview" type="button" aria-pressed="true">Overview</button>
+        <button id="v-top" type="button" aria-pressed="false">Top down</button>
+        <button id="v-eye" type="button" aria-pressed="false">Standing</button>
+      </div>
+      <div class="group" role="group" aria-label="Show">
+        <span class="group-label">Show</span>
+        <button id="t-cuts" type="button" aria-pressed="false">Cut pieces</button>
+        <button id="t-dims" type="button" aria-pressed="true">Dimensions</button>
+        <button id="t-walls" type="button" aria-pressed="true">Walls</button>
+      </div>
+    </div>
+    <p class="hint">Drag to orbit. Scroll or pinch to zoom.</p>
+  </div>
+
+  <aside class="sheet">
+    <div>
+      <h1>Grey weathered oak</h1>
+      <p class="sub">Planks run the long way, joints staggered by thirds.</p>
+    </div>
+    <section>
+      <h2>Room</h2>
+      <dl>
+        <dt>Size</dt><dd id="d-room"></dd>
+        <dt>Area</dt><dd id="d-area"></dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Plank</h2>
+      <dl>
+        <dt>Size</dt><dd id="d-plank"></dd>
+        <dt>Covers</dt><dd id="d-plank-area"></dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Layout</h2>
+      <dl>
+        <dt>Rows</dt><dd id="d-rows"></dd>
+        <dt>Edge rows ripped to</dt><dd id="d-edge"></dd>
+        <dt>Joint offset</dt><dd id="d-offset"></dd>
+        <dt>Pieces on the floor</dt><dd id="d-pieces"></dd>
+        <dt><span class="swatch" aria-hidden="true"></span>Cut pieces</dt><dd id="d-cut"></dd>
+        <dt>Shortest end piece</dt><dd id="d-short"></dd>
+        <dt>Planks used, offcuts reused</dt><dd id="d-used"></dd>
+      </dl>
+    </section>
+    <div class="buy">
+      <span class="n" id="d-buy"></span><span class="l">planks to buy</span>
+      <span class="why" id="d-why"></span>
+    </div>
+    <p class="note">The layout runs wall to wall. Leave the usual expansion gap at each wall (often 3/8″, check the plank maker's spec); the baseboard hides it.</p>
+  </aside>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.187.0/build/three.module.js" } }
+</script>
+<script>
+window.__installStage = function () {
+/*STAGE_KIT*/
+};
+</script>
+<script type="module">
+import * as THREE from 'three';
+window.THREE = THREE;
+window.__installStage();
+const K = window.K;
+
+// ------------------------------------------------------------ the numbers (inches)
+const ROOM = { L: 197, W: 130, H: 96 };          // 16'5" x 10'10", 8' ceiling
+const PLANK = { L: 50.6, W: 7.6, T: 0.5 };       // thickness is only for the picture
+const WASTE = 0.10, KERF = 0.125, MIN_OFFCUT = 6;
+const IN = 1 / 12;                               // the scene is in feet
+
+const ftin = (x) => { let f = Math.floor(x / 12), i = Math.round((x - f * 12) * 10) / 10; if (i >= 12) { f++; i = 0; } return `${f}′ ${i}″`; };
+const inch = (x) => `${(Math.round(x * 10) / 10).toString()}″`;
+
+function planLayout() {
+  const nFull = Math.floor(ROOM.W / PLANK.W + 1e-9), rem = ROOM.W - nFull * PLANK.W;
+  // rather than a sliver at one wall, take one full row out and split what is left between the two edge rows
+  let widths, edge = null;
+  if (rem < 1e-6) widths = Array(nFull).fill(PLANK.W);
+  else { edge = (rem + PLANK.W) / 2; widths = [edge, ...Array(nFull - 1).fill(PLANK.W), edge]; }
+  const offsets = [0, PLANK.L / 3, 2 * PLANK.L / 3], pieces = [];
+  let z = 0;
+  widths.forEach((w, r) => {
+    for (let x = -offsets[r % 3]; x < ROOM.L - 1e-6; x += PLANK.L) {
+      const x0 = Math.max(x, 0), x1 = Math.min(x + PLANK.L, ROOM.L);
+      if (x1 - x0 > 0.01) pieces.push({ row: r, x0, len: x1 - x0, z0: z, w, cut: x1 - x0 < PLANK.L - 0.01 || w < PLANK.W - 0.01 });
+    }
+    z += w;
+  });
+  // planks used if every offcut long enough is cut into a later piece (smallest offcut that fits)
+  let used = 0; const offcuts = [];
+  for (const p of pieces) {
+    if (p.len >= PLANK.L - 0.01) { used++; continue; }
+    let best = -1; offcuts.forEach((o, i) => { if (o >= p.len && (best < 0 || o < offcuts[best])) best = i; });
+    if (best >= 0) { const rest = offcuts[best] - p.len - KERF; offcuts.splice(best, 1); if (rest >= MIN_OFFCUT) offcuts.push(rest); }
+    else { used++; const rest = PLANK.L - p.len - KERF; if (rest >= MIN_OFFCUT) offcuts.push(rest); }
+  }
+  const area = ROOM.L * ROOM.W, plankArea = PLANK.L * PLANK.W, net = area / plankArea;
+  const shortest = Math.min(...pieces.map((p) => p.len));
+  return { widths, edge, pieces, used, net, buy: Math.ceil(net * (1 + WASTE) - 1e-9), area, plankArea, shortest, offset: PLANK.L / 3 };
+}
+const plan = planLayout();
+
+// ------------------------------------------------------------ fill in the spec sheet
+const $ = (id) => document.getElementById(id);
+$('d-room').textContent = `${ftin(ROOM.L)} × ${ftin(ROOM.W)}`;
+$('d-area').textContent = `${(plan.area / 144).toFixed(1)} sq ft`;
+$('d-plank').textContent = `${inch(PLANK.L)} × ${inch(PLANK.W)}`;
+$('d-plank-area').textContent = `${(plan.plankArea / 144).toFixed(2)} sq ft`;
+$('d-rows').textContent = `${plan.widths.length}`;
+$('d-edge').textContent = plan.edge ? inch(plan.edge) : 'none';
+$('d-offset').textContent = inch(plan.offset);
+$('d-pieces').textContent = `${plan.pieces.length}`;
+$('d-cut').textContent = `${plan.pieces.filter((p) => p.cut).length}`;
+$('d-short').textContent = inch(plan.shortest);
+$('d-used').textContent = `${plan.used}`;
+$('d-buy').textContent = `${plan.buy}`;
+$('d-why').textContent = `${plan.net.toFixed(1)} planks of floor area + ${Math.round(WASTE * 100)}% for cuts and waste, rounded up.`;
+
+// ------------------------------------------------------------ the 3D room
+const view = { theta: 0.62, phi: 0.66, dist: 29.5, target: [0, 1.1, 0.4], fov: 34, ap: 0.03 };
+const opts = { cuts: false, dims: true, walls: true };
+const PRESETS = {
+  overview: { theta: 0.62, phi: 0.66, dist: 29.5, target: [0, 1.1, 0.4], fov: 34, ap: 0.03 },
+  top:      { theta: 0.0, phi: 1.5, dist: 62, target: [0, 0, 0], fov: 15.5, ap: 0.0 },
+  eye:      { theta: 0.95, phi: 0.36, dist: 11.2, target: [-1.6, 1.2, -1.4], fov: 52, ap: 0.012 },
+};
+let api = null;
+
+const style = {
+  duration: 1,
+  fonts: ['600 26px "IBM Plex Mono"'],
+  render: { samples: 24, tone: 'neutral', exposure: 1.05, saturation: 1.0, bloom: 0.06, bloomThreshold: 1.4, vignette: 0.22, grain: 0.008, fov: 34, near: 0.1, far: 300, background: '#1b1c1d' },
+  build(S) {
+    const { scene, camera } = S;
+    const HL = ROOM.L * IN / 2, HW = ROOM.W * IN / 2, WH = ROOM.H * IN, T = PLANK.T * IN, WALL_T = 5 * IN;
+
+    // grey weathered oak: a few printed boards, each a full plank long, so cut pieces show a slice of one
+    function oak(seed) {
+      const W = 1024, H = 160;
+      return K.canvasTex(W, H, (ctx) => {
+        const n = K.noise(seed * 7 + 3), r = K.rng(seed * 13 + 1), im = ctx.createImageData(W, H), d = im.data;
+        const tone = r.range(0.9, 1.07), warm = r.range(-0.02, 0.05), ax = r.range(0.25, 0.75) * W, k = r.range(10, 24), ph = r.range(0, 6);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const g = n.fbm(x * 0.0032, y * 0.05, 0, 3), s = n.n3(x * 0.0018, y * 0.32, 4.2), dx = (x - ax) / W;
+          const ring = Math.sin((y / H) * 9 + dx * dx * k + g * 3.2 + ph);
+          let v = 0.6 + 0.17 * g + 0.07 * s + 0.03 * ring - 0.07 * Math.pow(Math.max(0, ring), 10);
+          v = v * tone + (K.hash(x, y, seed) - 0.5) * 0.035;
+          const i = (y * W + x) * 4;
+          d[i] = 236 * v * (1 + warm); d[i + 1] = 228 * v * (1 + warm * 0.4); d[i + 2] = 219 * v; d[i + 3] = 255;
+        }
+        ctx.putImageData(im, 0, 0);
+        for (let i = 0; i < 320; i++) {   // wire-brushed streaks along the grain
+          const y = r.range(0, H), x = r.range(-50, W), len = r.range(40, 320), light = r.chance(0.55);
+          ctx.fillStyle = light ? `rgba(245,240,232,${r.range(0.05, 0.16)})` : `rgba(40,36,32,${r.range(0.05, 0.14)})`;
+          ctx.fillRect(x, y, len, r.range(0.6, 1.6));
+        }
+        if (r.chance(0.3)) {                // a small knot, now and then
+          const x = r.range(80, W - 80), y = r.range(30, H - 30);
+          for (let q = 4; q >= 0; q--) { ctx.fillStyle = `rgba(60,52,46,${0.18 + 0.12 * (4 - q)})`; ctx.beginPath(); ctx.ellipse(x, y, 5 + q * 5, 2.2 + q * 1.6, 0, 0, 7); ctx.fill(); }
+        }
+        const e = ctx.createLinearGradient(0, 0, 0, H);   // a touch darker at the eased edges
+        e.addColorStop(0, 'rgba(30,28,26,0.22)'); e.addColorStop(0.06, 'rgba(30,28,26,0)'); e.addColorStop(0.94, 'rgba(30,28,26,0)'); e.addColorStop(1, 'rgba(30,28,26,0.22)');
+        ctx.fillStyle = e; ctx.fillRect(0, 0, W, H);
+      });
+    }
+    const boards = Array.from({ length: 7 }, (_, i) => oak(i + 1));
+
+    const rng = K.rng(42), planks = [];
+    let prevBoard = -1;
+    plan.pieces.forEach((p) => {
+      const len = p.len * IN, w = p.w * IN, gap = 0.05 * IN;
+      const g = K.roundedBox(len - gap, T, w - gap, 0.012, 2), uv = g.attributes.uv;
+      const fu = p.len / PLANK.L, off = rng() * (1 - fu), fv = p.w / PLANK.W;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * fu + off, uv.getY(i) * fv);
+      let b; do { b = rng.int(0, boards.length - 1); } while (b === prevBoard); prevBoard = b;
+      const shade = rng.range(0.9, 1.06);
+      const mat = new THREE.MeshStandardMaterial({ map: boards[b], bumpMap: boards[b], bumpScale: 0.9, roughness: rng.range(0.55, 0.7), metalness: 0 });
+      mat.color.setScalar(shade); mat.userData.shade = shade;
+      const m = new THREE.Mesh(g, mat);
+      m.position.set((p.x0 + p.len / 2) * IN - HL, T / 2, (p.z0 + p.w / 2) * IN - HW);
+      m.castShadow = m.receiveShadow = true; scene.add(m);
+      planks.push({ m, p });
+    });
+
+    // subfloor and the ground the model sits on
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(ROOM.L * IN + 2 * WALL_T + 0.6, 0.5, ROOM.W * IN + 2 * WALL_T + 0.6), new THREE.MeshStandardMaterial({ color: '#57534e', roughness: 0.9 }));
+    slab.position.y = -0.25; slab.receiveShadow = slab.castShadow = true; scene.add(slab);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: '#34322f', roughness: 0.95 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true; scene.add(ground);
+
+    // walls: each its own material, so the wall between the camera and the room can be made see-through while
+    // it still blocks the sun (a hidden-but-shadowing cutaway)
+    const walls = [];
+    function wall(name, inside) {
+      const wm = new THREE.MeshStandardMaterial({ color: '#e9e6e0', roughness: 0.92 }), bm = new THREE.MeshStandardMaterial({ color: '#f6f4f0', roughness: 0.55 });
+      const grp = { name, inside, meshes: [], mats: [wm, bm] };
+      grp.box = (w, h, d, x, y, z, mat = wm) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; scene.add(m); grp.meshes.push(m); return m; };
+      walls.push(grp); return grp;
+    }
+    const BB_H = 3.5 * IN, BB_D = 0.6 * IN;
+    // back wall (z = -HW) with a window
+    const win = { x0: -4.6, x1: 0.2, sill: 2.7, head: 7.0 };
+    {
+      const g = wall('back', (c) => c.z > -HW), z = -HW - WALL_T / 2, X0 = -HL - WALL_T, X1 = HL + WALL_T;
+      g.box(win.x0 - X0, WH, WALL_T, (X0 + win.x0) / 2, WH / 2, z);
+      g.box(X1 - win.x1, WH, WALL_T, (win.x1 + X1) / 2, WH / 2, z);
+      g.box(win.x1 - win.x0, win.sill, WALL_T, (win.x0 + win.x1) / 2, win.sill / 2, z);
+      g.box(win.x1 - win.x0, WH - win.head, WALL_T, (win.x0 + win.x1) / 2, (win.head + WH) / 2, z);
+      const fw = 0.16, bm = g.mats[1], cx = (win.x0 + win.x1) / 2, cy = (win.sill + win.head) / 2, ww = win.x1 - win.x0, wh = win.head - win.sill;
+      g.box(ww, fw, WALL_T + 0.08, cx, win.sill + fw / 2, z, bm); g.box(ww, fw, WALL_T, cx, win.head - fw / 2, z, bm);
+      g.box(fw, wh, WALL_T, win.x0 + fw / 2, cy, z, bm); g.box(fw, wh, WALL_T, win.x1 - fw / 2, cy, z, bm);
+      g.box(0.07, wh, 0.1, cx, cy, z, bm); g.box(ww, 0.07, 0.1, cx, cy, z, bm);
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.MeshBasicMaterial({ color: '#dfe8f0', transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      pane.position.set(cx, cy, z - 0.02); scene.add(pane); g.mats.push(pane.material);   // daylight in the glass; it does not cast shadows, so the sun comes through
+      g.box(ROOM.L * IN, BB_H, BB_D, 0, BB_H / 2, -HW + BB_D / 2, bm);
+    }
+    {
+      const g = wall('front', (c) => c.z < HW);
+      g.box(ROOM.L * IN + 2 * WALL_T, WH, WALL_T, 0, WH / 2, HW + WALL_T / 2);
+      g.box(ROOM.L * IN, BB_H, BB_D, 0, BB_H / 2, HW - BB_D / 2, g.mats[1]);
+    }
+    for (const s of [-1, 1]) {
+      const g = wall(s < 0 ? 'left' : 'right', s < 0 ? (c) => c.x > -HL : (c) => c.x < HL);
+      g.box(WALL_T, WH, ROOM.W * IN, s * (HL + WALL_T / 2), WH / 2, 0);
+      g.box(BB_D, BB_H, ROOM.W * IN, s * (HL - BB_D / 2), BB_H / 2, 0, g.mats[1]);
+    }
+    const setWall = (g, show) => g.mats.forEach((m) => { if (m.colorWrite !== show) { m.colorWrite = show; m.depthWrite = show; } });
+
+    // light: afternoon sun from behind the window wall, a sky dome for soft fill and contact shading, a bright
+    // overhead panel in the environment so the boards pick up a soft sheen
+    K.env(S, { top: '#d9e2ec', horizon: '#b7b0a6', bottom: '#5a554f', intensity: 0.5, panels: [{ pos: [2, 16, 6], size: [10, 10], color: '#fff6ea', power: 2.2 }, { pos: [-14, 5, -8], size: [6, 6], color: '#cfe0ff', power: 1.2 }] });
+    K.sun(S, { pos: [-7, 15, -11], target: [0, 0, 0], color: '#fff0da', power: 3.4, size: 13, soft: 0.45, mapSize: 4096, bias: -0.0002, normalBias: 0.015 });
+    K.skyLight(S, { color: '#e4ebf5', power: 1.25, size: 14, center: [0, 0, 0], spread: 0.85, mapSize: 2048 });
+
+    const camPos = () => { const cp = Math.cos(view.phi); return [view.target[0] + view.dist * cp * Math.sin(view.theta), view.target[1] + view.dist * Math.sin(view.phi), view.target[2] + view.dist * cp * Math.cos(view.theta)]; };
+
+    // dimension strings, drawn on top in screen space
+    const v3 = new THREE.Vector3();
+    const proj = (p) => { v3.set(p[0], p[1], p[2]).project(camera); return v3.z > 1 || v3.z < -1 ? null : [(v3.x + 1) / 2 * S.W, (1 - v3.y) / 2 * S.H]; };
+    function dim(ctx, a, b, label) {
+      const A = proj(a), B = proj(b); if (!A || !B) return;
+      const dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy); if (len < 60) return;
+      const nx = -dy / len * 9, ny = dx / len * 9;
+      ctx.strokeStyle = 'rgba(250,248,244,0.95)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]);
+      for (const P of [A, B]) { ctx.moveTo(P[0] - nx, P[1] - ny); ctx.lineTo(P[0] + nx, P[1] + ny); }
+      ctx.stroke();
+      ctx.font = '600 26px "IBM Plex Mono", ui-monospace, monospace';
+      const tw = ctx.measureText(label).width, mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+      ctx.fillStyle = 'rgba(24,25,26,0.86)'; ctx.beginPath(); ctx.roundRect(mx - tw / 2 - 12, my - 20, tw + 24, 40, 6); ctx.fill();
+      ctx.fillStyle = '#f7f5f1'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, mx, my + 1);
+    }
+
+    return {
+      update() {
+        const c = camPos();
+        K.look(camera, c, view.target, view.fov);
+        K.focus(camera, view.dist, view.ap);
+        const at = { x: c[0], z: c[2] };
+        const plan = view.phi > 1.25;   // looking straight down: a clean floor plan, no walls in the way
+        walls.forEach((g) => setWall(g, !opts.walls || plan ? false : g.inside(at)));
+        planks.forEach(({ m, p }) => {
+          const on = opts.cuts && p.cut, s = m.material.userData.shade;
+          if (on) { m.material.color.setRGB(1.25, 0.82, 0.5); m.material.emissive.setRGB(0.12, 0.05, 0.0); }
+          else { m.material.color.setScalar(s); m.material.emissive.setRGB(0, 0, 0); }
+        });
+      },
+      overlay(ctx) {
+        if (!opts.dims) return;
+        const y = 0.05, o = WALL_T + 0.9;
+        dim(ctx, [-HL, y, HW + o], [HL, y, HW + o], ftin(ROOM.L));
+        dim(ctx, [HL + o, y, HW], [HL + o, y, -HW], ftin(ROOM.W));
+      },
+    };
+  },
+};
+
+// ------------------------------------------------------------ viewer: a quick pass while moving, a clean one at rest
+const canvas = $('c'), viewer = $('viewer'), status = $('status');
+const S = await K.run(canvas, style, { samples: 24, width: 1600, height: 900 });
+window.S = S;
+$('loading').hidden = true; status.hidden = false;
+let dirty = true, lastMove = 0, refined = false;
+const kick = () => { dirty = true; };
+function frame() {
+  requestAnimationFrame(frame);
+  const now = performance.now();
+  if (dirty) { S.seek(0, 2); dirty = false; refined = false; lastMove = now; status.textContent = 'Preview'; }
+  else if (!refined && now - lastMove > 220) { S.seek(0); refined = true; status.textContent = 'Final render'; }
+}
+requestAnimationFrame(frame);
+
+// orbit, zoom and pinch with pointer events
+const pts = new Map(); let pinch0 = 0, dist0 = 0;
+viewer.addEventListener('pointerdown', (e) => { viewer.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); viewer.classList.add('dragging'); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = view.dist; } });
+viewer.addEventListener('pointermove', (e) => {
+  if (!pts.has(e.pointerId)) return;
+  const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 1) { view.theta -= (e.clientX - prev[0]) * 0.006; view.phi = K.clamp(view.phi + (e.clientY - prev[1]) * 0.005, 0.06, 1.55); }
+  else if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0 > 0) view.dist = K.clamp(dist0 * pinch0 / d, 3, 70); }
+  clearPreset(); kick();
+});
+const up = (e) => { pts.delete(e.pointerId); if (!pts.size) viewer.classList.remove('dragging'); pinch0 = 0; };
+viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
+viewer.addEventListener('wheel', (e) => { e.preventDefault(); view.dist = K.clamp(view.dist * Math.exp(e.deltaY * 0.0012), 3, 70); clearPreset(); kick(); }, { passive: false });
+
+// camera presets glide unless the viewer prefers reduced motion
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const presetBtns = { overview: $('v-overview'), top: $('v-top'), eye: $('v-eye') };
+function clearPreset() { Object.values(presetBtns).forEach((b) => b.setAttribute('aria-pressed', 'false')); }
+let anim = 0;
+function goTo(name) {
+  clearPreset(); presetBtns[name].setAttribute('aria-pressed', 'true');
+  const from = JSON.parse(JSON.stringify(view)), to = PRESETS[name], id = ++anim, t0 = performance.now(), dur = reduce ? 0 : 900;
+  let dth = to.theta - from.theta; dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+  const step = () => {
+    if (id !== anim) return;
+    const u = dur ? K.ease.inOut(K.clamp((performance.now() - t0) / dur)) : 1;
+    view.theta = from.theta + dth * u; view.phi = K.lerp(from.phi, to.phi, u); view.dist = K.lerp(from.dist, to.dist, u);
+    view.fov = K.lerp(from.fov, to.fov, u); view.ap = K.lerp(from.ap, to.ap, u);
+    view.target = from.target.map((v, k) => K.lerp(v, to.target[k], u));
+    kick(); if (u < 1) requestAnimationFrame(step);
+  };
+  step();
+}
+Object.entries(presetBtns).forEach(([k, b]) => b.addEventListener('click', () => goTo(k)));
+for (const [id, key] of [['t-cuts', 'cuts'], ['t-dims', 'dims'], ['t-walls', 'walls']]) {
+  const b = $(id); b.addEventListener('click', () => { opts[key] = !opts[key]; b.setAttribute('aria-pressed', String(opts[key])); kick(); });
+}
+</script>
